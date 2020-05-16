@@ -1,0 +1,312 @@
+#assumes all cashiers have the same efficiency
+
+
+from random import Random
+from math import sqrt
+import numpy as np
+import pandas as pd
+import statistics as stat
+from scipy import stats
+from scipy.stats import t
+
+line_number = 8 
+customer_number = 150
+iterations = 200
+
+    
+#Model for multi-line set up   
+def single_line(cashiers, customer_number,num_trials):
+
+    cust_wait_time = []
+
+    for j in range(0,num_trials):
+        temp_wait = single_trial(cashiers, customer_number)
+        cust_wait_time.append(temp_wait)
+
+        
+    return cust_wait_time
+
+
+def single_trial(cashiers, customer_number):
+    
+    #create a list of n customers with random checkout following exponential distribution
+    exp_var = np.random.exponential(0.5,customer_number)
+    
+    customers = list(exp_var)
+    
+    wait_time = []
+    
+        
+    #make list of customers at checkout
+    custm_at_checkout = customers[0:cashiers]
+    
+        
+    #cut out number of cashiers from customers that are now at register
+    customers = customers[cashiers:len(customers)]
+
+
+    #get customer checkout number for loop
+    custm_num = len(customers)
+    
+    
+    #go thru each customer 
+    for i in range(0,custm_num):
+        
+        #pick shortest time at checkout
+        done_at_checkout = min(custm_at_checkout)
+        
+        #get index of customer that is done
+        done_index = custm_at_checkout.index(min(custm_at_checkout))
+        
+        #subtract shortest time from each customer at checkout
+        for j in range(0,len(custm_at_checkout)):
+            custm_at_checkout[j] = custm_at_checkout[j] - done_at_checkout
+        
+ 
+        
+        #remove customer that is done 
+        custm_at_checkout.pop(done_index)
+        
+        
+        
+       
+        #add the next customer in line at register
+        if len(customers) > 0:
+            custm_at_checkout.append(customers[0])
+        else:
+            break
+        
+        
+        #remove customer that is now at register
+        customers = customers[1:len(customers)]
+        
+        #add waiting time to list
+        wait_time.append(done_at_checkout)
+        
+        #sum total wait time
+        total_wait_time = sum(wait_time[0:len(wait_time)])
+         
+           
+    return total_wait_time
+
+
+
+
+#Start code for multiple lines
+#Assume customers go to shortest line
+def multiple_lines(number_lines,customer_number,num_trials):
+
+    
+    #create a random line set up, with random number of customers in each line except that last customer
+    num_custmrs_in_place = customer_number - 1
+        
+    
+    #create a list of n customers with random checkout times between 0 and 1
+    exp_var = np.random.exponential(0.5,customer_number)
+    
+    customers = list(exp_var)
+    
+    
+    wait_times = []
+    
+    for j in range(0,num_trials):
+        temp_value = single_trial_multiple_lines(number_lines,customer_number)
+        
+        wait_times.append(temp_value)
+        
+    return wait_times
+
+
+
+def single_trial_multiple_lines(number_lines,customer_number):
+    #make list inside of lines list for each line
+    
+    lines = []
+    
+    #create empty list of lists for each line
+    for i in range(0,number_lines):
+        lines.append([])
+        
+    
+        
+    #randomly populate lines with customers already there
+    for h in range(0,customer_number):
+            
+            #set customers to each line randomly
+            rand_register = Random() 
+            rand_register = rand_register.randint(0,number_lines-1)
+            
+            
+            #set random customer's checkout times
+            rand_start_checkout = Random()
+            lines[rand_register].append(rand_start_checkout.uniform(0,1))
+
+    
+    
+    line_length_list = []
+        
+    #get length of each line
+    for k in range(0,number_lines):       
+        line_length_list.append(len(lines[k]))
+        
+    
+        
+    shortest_line = line_length_list.index(min(line_length_list)) #this is making a list of the shortest line, not the actual list
+    
+    
+    rand_num = Random()
+    last_cust_checkout_time = rand_num.uniform(0,1)
+        
+    #put nth customer in shortest line
+    lines[shortest_line].append(last_cust_checkout_time)
+    
+        
+    total_wait_time = sum(lines[shortest_line])
+    
+    
+    return total_wait_time
+
+
+
+#multi-lines iterations
+#summarize data from trials for multi-lines
+def iterate_multi_lines(max_cashiers):
+
+    averages = []
+    medians = []
+    variances = []
+
+    for k in range(2,max_cashiers+1):
+
+        multi_line_temp = multiple_lines(k,k*50,100)
+
+        averages.append([k,np.average(multi_line_temp),np.var(multi_line_temp)])
+        
+    #convert averages list into dataframe
+    headers = ['Number of Registers','Average','Variance']
+        
+    data_df = pd.DataFrame(averages, columns=headers)
+    
+    return data_df
+
+ 
+
+ 
+
+ 
+#summarize data from trials for single lines
+def iterate_single_lines(max_cashiers):
+
+    averages = []
+    medians = []
+    variances = []
+
+    
+    for k in range(2,max_cashiers+1):
+
+        multi_line_temp = single_line(k,k*50,100)
+
+        averages.append([k,np.average(multi_line_temp),np.var(multi_line_temp)])
+
+    #convert averages list into dataframe
+    headers = ['Number of Registers','Average','Variance']
+    
+    data_df = pd.DataFrame(averages, columns=headers)
+
+    return data_df
+
+
+
+#multiple lines execution      
+multi_line = multiple_lines(line_number,customer_number,iterations)
+
+#average of mulitple lines
+multi_line_average = np.average(multi_line)
+
+#mean of multiple lines
+multi_line_median = np.median(multi_line) 
+
+#variance of multiple lines
+multi_line_var = np.var(multi_line)
+
+#Put multi stats into the list
+multi_line_stats = [multi_line_average,multi_line_var]
+
+
+########Single lines########
+#single line execution
+single_lines = single_line(line_number,customer_number,iterations)
+
+#average of single lines
+single_line_average = np.average(single_lines)
+
+#mean of single lines
+single_line_median = np.median(single_lines)
+
+#variance of single lines
+single_line_var = np.var(single_lines)
+
+#put statistics for single lines into the list
+single_line_stats = [single_line_average,single_line_var]
+
+print("Multi Line Stats")
+print(multi_line_stats)
+
+print("Single Line Stats")
+print(single_line_stats)
+      
+
+#Difference of Means Confidence Interval Function
+def mean_ci(list1,list2,confidence):
+    
+    n1 = len(list1)
+    n2 = len(list2)
+    
+    mean1 = np.average(list1)
+    mean2 = np.average(list2)
+    dif = mean1 - mean2
+    
+    var1 = np.var(list1)
+    var2 = np.var(list2)
+    
+    ci_std = sqrt((var1/n1)+(var2/n2))
+    
+    deg_free = (((var1/n1)+(var2/n2))**2)/((((var1/n1)**2)/(n1-1))+(((var2/n2)**2)/(n2-1)))
+    
+    tval = t.ppf(confidence,deg_free)
+    
+    plus_minus = tval*ci_std
+    
+    CI = [(dif - plus_minus),(dif + plus_minus)]
+    
+    return CI
+
+#Difference in variance CI function
+def var_ci(list1,list2,confidence):
+    
+    var1 = np.var(list1)
+    var2 = np.var(list2)
+    
+    df1 = len(list1) - 1
+    df2 = len(list2) - 1
+    
+    test_stat = var1/var2
+    
+    lower = stats.f.ppf(q = (1-(confidence))/2, dfn=df1, dfd=df2)
+    
+    upper = stats.f.ppf(q = ((confidence)+((1-confidence)/2)), dfn=df1, dfd=df2)
+    
+    CI = [(test_stat*lower),(test_stat*upper)]
+    
+    return CI
+
+#put trial outputs thru Confidence interval functions
+test2 = var_ci(single_lines, multi_line,.99)
+    
+test = mean_ci(single_lines,multi_line,.99)
+
+print("mean CI")
+print(test)
+
+print("variance CI")
+print(test2)
